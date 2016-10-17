@@ -49,6 +49,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import android.widget.LinearLayout;
 
 import org.tensorflow.demo.env.Logger;
 
@@ -59,6 +60,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import android.content.Intent;
+
 
 public class CameraConnectionFragment extends Fragment {
   private static final Logger LOGGER = new Logger();
@@ -140,6 +143,8 @@ public class CameraConnectionFragment extends Fragment {
    * The {@link android.util.Size} of camera preview.
    */
   private Size previewSize;
+
+  private LinearLayout estimate_pictures;
 
   /**
    * {@link android.hardware.camera2.CameraDevice.StateCallback}
@@ -281,6 +286,14 @@ public class CameraConnectionFragment extends Fragment {
   public void onViewCreated(final View view, final Bundle savedInstanceState) {
     textureView = (AutoFitTextureView) view.findViewById(R.id.texture);
     scoreView = (RecognitionScoreView) view.findViewById(R.id.results);
+    estimate_pictures = (LinearLayout) view.findViewById(R.id.eastimat_pictures);
+    estimate_pictures.setOnClickListener(new View.OnClickListener() {
+      @Override
+      public void onClick(View v) {
+        Intent intent=new Intent(getActivity(),CategoryActivity.class);
+        startActivity(intent);
+      }
+    });
   }
 
   @Override
@@ -538,7 +551,7 @@ public class CameraConnectionFragment extends Fragment {
 
     LOGGER.i("Getting assets.");
     tfPreviewListener.initialize(
-        getActivity().getAssets(), scoreView, inferenceHandler, sensorOrientation);
+        getActivity().getAssets(), getActivity(), scoreView, estimate_pictures, inferenceHandler, sensorOrientation);
     LOGGER.i("TensorFlow initialized.");
   }
 

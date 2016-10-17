@@ -26,12 +26,17 @@ import android.media.ImageReader;
 import android.media.ImageReader.OnImageAvailableListener;
 import android.os.Handler;
 import android.os.Trace;
+import android.widget.LinearLayout;
+import android.widget.ImageView;
 
 import java.io.IOException;
 import java.util.List;
 import junit.framework.Assert;
 import org.tensorflow.demo.env.ImageUtils;
 import org.tensorflow.demo.env.Logger;
+import android.app.Activity;
+import org.tensorflow.demo.Model.FileOperation;
+import org.tensorflow.demo.Model.PictureDBHelper;
 
 /**
  * Class that takes in preview frames and converts the image to Bitmaps to process with Tensorflow.
@@ -73,10 +78,15 @@ public class TensorFlowImageListener implements OnImageAvailableListener {
   private Handler handler;
 
   private RecognitionScoreView scoreView;
+  private LinearLayout estimate_pictures;
 
+  private Activity activity;
+  private PictureDBHelper dbhelper;
   public void initialize(
       final AssetManager assetManager,
+      final Activity activity,
       final RecognitionScoreView scoreView,
+      final LinearLayout estimate_pictures,
       final Handler handler,
       final Integer sensorOrientation) {
     Assert.assertNotNull(sensorOrientation);
@@ -87,9 +97,13 @@ public class TensorFlowImageListener implements OnImageAvailableListener {
     } catch (IOException e) {
       LOGGER.e(e, "Exception!");
     }
+    this.activity = activity;
+    this.estimate_pictures = estimate_pictures;
     this.scoreView = scoreView;
     this.handler = handler;
     this.sensorOrientation = sensorOrientation;
+    dbhelper = new PictureDBHelper(activity);
+    dbhelper.openDB();
   }
 
   private void drawResizedBitmap(final Bitmap src, final Bitmap dst) {
@@ -115,6 +129,14 @@ public class TensorFlowImageListener implements OnImageAvailableListener {
 
     final Canvas canvas = new Canvas(dst);
     canvas.drawBitmap(src, matrix, null);
+  }
+
+  private ImageView getNewImageView(Bitmap bm){
+    ImageView imageView = new ImageView(activity.getApplicationContext());
+    imageView.setLayoutParams(new LinearLayout.LayoutParams(120, 120));
+    imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+    imageView.setImageBitmap(bm);
+    return imageView;
   }
 
   @Override
@@ -182,7 +204,6 @@ public class TensorFlowImageListener implements OnImageAvailableListener {
       Trace.endSection();
       return;
     }
-
     rgbFrameBitmap.setPixels(rgbBytes, 0, previewWidth, 0, 0, previewWidth, previewHeight);
     drawResizedBitmap(rgbFrameBitmap, croppedBitmap);
 
@@ -202,6 +223,22 @@ public class TensorFlowImageListener implements OnImageAvailableListener {
               LOGGER.v("Result: " + result.getTitle());
             }
             scoreView.setResults(results);
+            if( results.size() >=1 && results.get(0).getConfidence() > 0.3){
+              activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                  Bitmap bm = rgbFrameBitmap.copy(rgbFrameBitmap.getConfig(), true);
+                  estimate_pictures.addView(getNewImageView(bm));
+                }
+              });
+              
+              String name = Long.toString(System.currentTimeMillis())+".jpg";
+              dbhelper.insertPicture(
+                name, 
+                results.get(0).getTitle(), 
+                FileOperation.saveToInternalStorage(activity, croppedBitmap, name));
+            }
+
             computing = false;
           }
         });
